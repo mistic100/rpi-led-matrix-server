@@ -1,0 +1,9 @@
+[Unit]
+After=multi-user.target
+
+[Service]
+ExecStart=/home/pi/matrix/matrix
+WorkingDirectory=/home/pi/matrix
+
+[Install]
+WantedBy=default.target
