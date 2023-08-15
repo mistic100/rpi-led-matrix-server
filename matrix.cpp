@@ -11,10 +11,12 @@
 #include <dirent.h>
 #include <Magick++.h>
 #include <magick/image.h>
+#include <wiringPi.h>
 #include "led-matrix.h"
 #include "content-streamer.h"
 #include "graphics.h"
 #include "lib8tion.h"
+#include "Button.h"
 
 #define INOTIFY_BUF_LEN sizeof(struct inotify_event) + NAME_MAX + 1
 
@@ -39,6 +41,8 @@ const char* NUMS_FILE = "nums.png";
 #define SHOW_TIME
 #define TIME_X ((MATRIX_WIDTH - (NUMS_WIDTH + NUMS_SPACE) * 5) / 2)
 #define TIME_Y ((MATRIX_HEIGHT - NUMS_HEIGHT) / 2)
+
+#define BUTTON_PIN 6 // GPIO25
 
 volatile bool interrupt_received = false;
 static void InterruptHandler(int signo)
@@ -282,6 +286,9 @@ int main(int argc, char **argv)
 
     Magick::InitializeMagick(*argv);
 
+    wiringPiSetup();
+    Button button(BUTTON_PIN);
+
     RGBMatrix::Options matrix_options;
     rgb_matrix::RuntimeOptions runtime_opt;
 
@@ -320,6 +327,7 @@ int main(int argc, char **argv)
     }
 
     FrameCanvas *offscreen_canvas = matrix->CreateFrameCanvas();
+    FrameCanvas *offscreen_canvas2 = matrix->CreateFrameCanvas();
 
     rgb_matrix::DrawText(offscreen_canvas, font,
                          2, 2 + font.baseline(),
@@ -334,6 +342,20 @@ int main(int argc, char **argv)
     signal(SIGTERM, InterruptHandler);
     signal(SIGINT, InterruptHandler);
 
+    bool isOn = true;
+    button.onSinglePress([&]() {
+        isOn = !isOn;
+        if (!isOn)
+        {
+            cout << "OFF" << endl;
+            matrix->Clear();
+        }
+        else
+        {
+            cout << "ON" << endl;
+        }
+    });
+
     #ifdef SHOW_TIME
         int timeToDisplay[5] = {};
         Magick::Image nums = Magick::Image(NUMS_FILE);
@@ -344,6 +366,7 @@ int main(int argc, char **argv)
     rgb_matrix::StreamIO* stream = NULL;
     rgb_matrix::StreamReader* reader = NULL;
 
+    tmillis_t next = GetTimeInMillis();
     while (!interrupt_received)
     {
         // check FS notifications
@@ -352,6 +375,11 @@ int main(int argc, char **argv)
         if (length > 0)
         {
             changes = true;
+        }
+
+        EVERY_N_MILLIS(50)
+        {
+            button.handle();
         }
 
         // reload files if needed
@@ -374,26 +402,31 @@ int main(int argc, char **argv)
                         delete reader;
                         delete stream;
                     }
-                    stream = loadImages(images_filenames, offscreen_canvas);
+                    stream = loadImages(images_filenames, offscreen_canvas2);
                     reader = new rgb_matrix::StreamReader(stream);
                 }
                 changes = false;
             }
         }
 
+        if (reader == NULL || !isOn)
+        {
+            continue;
+        }
+
         // display !
-        if (reader != NULL) {
+        const tmillis_t now = GetTimeInMillis();
+        if (now >= next)
+        {
             uint32_t delay_us = 0;
             if (reader->GetNext(offscreen_canvas, &delay_us)) {
-                const tmillis_t start_wait_ms = GetTimeInMillis();
                 const tmillis_t anim_delay_ms = delay_us / 1000;
-                #ifdef SHOW_TIME
-                    getTimeToDisplay(timeToDisplay);
-                    showTime(offscreen_canvas, timeToDisplay, nums);
-                #endif
+#ifdef SHOW_TIME
+                getTimeToDisplay(timeToDisplay);
+                showTime(offscreen_canvas, timeToDisplay, nums);
+#endif
                 offscreen_canvas = matrix->SwapOnVSync(offscreen_canvas);
-                const tmillis_t time_already_spent = GetTimeInMillis() - start_wait_ms;
-                SleepMillis(anim_delay_ms - time_already_spent);
+                next = now + anim_delay_ms;
             } else {
                 reader->Rewind();
             }

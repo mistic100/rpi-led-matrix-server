@@ -10,6 +10,7 @@ A simple C++ program to display a slideshow of images (and GIF) on a HUB75 matri
 - `sudo apt-get install libgraphicsmagick++-dev libwebp-dev`
 - `sudo apt-get remove bluez bluez-firmware pi-bluetooth triggerhappy pigpio`
 - remove `pam_systemd` and `pam_chksshpwd` in `/etc/pam.d/common-session`
+- install [WiringPi](https://github.com/WiringPi/WiringPi/releases)
 
 ## Usage
 
@@ -23,4 +24,10 @@ For convenience, the RPI IP address is displayed on program start.
 
 ## Configuration
 
-There are some constants at the begining of `matrix.cpp` to change the expected size of images and the duration of PNG frames.
+There are some constants at the begining of `matrix.cpp`
+- `MATRIX_WIDTH` and `MATRIX_HEIGHT` : size of the screen and expected size of images
+- `IMAGE_DELAY` : default duration for still images (PNG)
+- `NUMS_FILE`, `NUMS_WIDTH` and `NUMS_HEIGHT` : configuration of a file containing numbers 0 to 9 + ":" symbol
+- `SHOW_TIME`, `TIME_X` and `TIME_Y` : configuration of the digital clock
+- `NUMS_SPACE` : letter-spacing when displaying the clock
+- `BUTTON_PIN` : input pin for a button (on/off)

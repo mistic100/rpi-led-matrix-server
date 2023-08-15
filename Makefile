@@ -4,8 +4,8 @@ RGB_LIBDIR=$(RGB_LIB_DISTRIBUTION)/lib
 RGB_LIBRARY_NAME=rgbmatrix
 RGB_LIBRARY=$(RGB_LIBDIR)/lib$(RGB_LIBRARY_NAME).a
 
-CXXFLAGS=-Wall -O3 -g -Wextra -Wno-unused-parameter
-LDFLAGS+=-L$(RGB_LIBDIR) -l$(RGB_LIBRARY_NAME) -lrt -lm -lpthread
+CXXFLAGS=-Wall -O3 -g -Wextra -Wno-unused-parameter -Wno-implicit-fallthrough
+LDFLAGS+=-L$(RGB_LIBDIR) -l$(RGB_LIBRARY_NAME) -lrt -lm -lpthread -lwiringPi
 
 MAGICK_CXXFLAGS?=$(shell GraphicsMagick++-config --cppflags --cxxflags)
 MAGICK_LDFLAGS?=$(shell GraphicsMagick++-config --ldflags --libs)
