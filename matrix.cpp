@@ -23,12 +23,22 @@ using namespace rgb_matrix;
 
 typedef int64_t tmillis_t;
 
-const char *IMAGES_FOLDER = "./images/";
+#define IMAGE_DELAY 5000
+#define MATRIX_WIDTH 64
+#define MATRIX_HEIGHT 32
+
+const char* IMAGES_FOLDER = "./images/";
 const string IMAGE_EXTENSION_PNG = ".png";
 const string IMAGE_EXTENSION_GIF = ".gif";
-const uint16_t IMAGE_DELAY = 5000;
-const uint8_t MATRIX_WIDTH = 64;
-const uint8_t MATRIX_HEIGHT = 32;
+
+const char* NUMS_FILE = "nums.png";
+#define NUMS_WIDTH 11
+#define NUMS_HEIGHT 12
+#define NUMS_SPACE -2
+
+#define SHOW_TIME
+#define TIME_X ((MATRIX_WIDTH - (NUMS_WIDTH + NUMS_SPACE) * 5) / 2)
+#define TIME_Y ((MATRIX_HEIGHT - NUMS_HEIGHT) / 2)
 
 volatile bool interrupt_received = false;
 static void InterruptHandler(int signo)
@@ -39,7 +49,7 @@ static void InterruptHandler(int signo)
 /**
  * Get current time in milliseconds
  */
-static tmillis_t GetTimeInMillis() {
+tmillis_t GetTimeInMillis() {
     struct timeval tp;
     gettimeofday(&tp, NULL);
     return tp.tv_sec * 1000 + tp.tv_usec / 1000;
@@ -48,7 +58,7 @@ static tmillis_t GetTimeInMillis() {
 /**
  * Sleep for X milliseconds
  */
-static void SleepMillis(tmillis_t milli_seconds) {
+void SleepMillis(tmillis_t milli_seconds) {
     if (milli_seconds <= 0) return;
     struct timespec ts;
     ts.tv_sec = milli_seconds / 1000;
@@ -127,6 +137,23 @@ void listImages(vector<string> &images_filenames)
 }
 
 /**
+ * Copy a pixel from an image to a frame
+ */
+void copyPixel(const Magick::Image &from, FrameCanvas *to,
+               int x1, int y1,
+               int x2, int y2)
+{
+    const Magick::Color &c = from.pixelColor(x1, y1);
+    if (c.alphaQuantum() < 256)
+    {
+        to->SetPixel(x2, y2,
+                     ScaleQuantumToChar(c.redQuantum()),
+                     ScaleQuantumToChar(c.greenQuantum()),
+                     ScaleQuantumToChar(c.blueQuantum()));
+    }
+}
+
+/**
  * Store a frame in the matrix stream
  */
 static void storeInStream(const Magick::Image &img, int delay_time_us,
@@ -135,16 +162,9 @@ static void storeInStream(const Magick::Image &img, int delay_time_us,
     scratch->Clear();
     for (size_t y = 0; y < img.rows(); ++y)
     {
-        for (size_t x = 0; x < img.columns(); ++x) 
+        for (size_t x = 0; x < img.columns(); ++x)
         {
-            const Magick::Color &c = img.pixelColor(x, y);
-            if (c.alphaQuantum() < 256) 
-            {
-                scratch->SetPixel(x, y,
-                                  ScaleQuantumToChar(c.redQuantum()),
-                                  ScaleQuantumToChar(c.greenQuantum()),
-                                  ScaleQuantumToChar(c.blueQuantum()));
-            }
+            copyPixel(img, scratch, x, y, x, y);
         }
     }
     output->Stream(*scratch, delay_time_us);
@@ -175,7 +195,7 @@ rgb_matrix::StreamIO* loadImages(vector<string> &images_filenames, FrameCanvas *
                 continue;
             }
 
-            if (frames[0].rows() != MATRIX_WIDTH || frames[0].columns() != MATRIX_HEIGHT)
+            if (frames[0].rows() != MATRIX_HEIGHT || frames[0].columns() != MATRIX_WIDTH)
             {
                 cerr << "Couldn't load image " << filename << endl;
                 continue;
@@ -213,6 +233,45 @@ rgb_matrix::StreamIO* loadImages(vector<string> &images_filenames, FrameCanvas *
     return stream;
 }
 
+#ifdef SHOW_TIME
+/**
+ * Get the current time as used in `showTime`
+ *
+ * @param out has 5 elements 0-10
+ */
+void getTimeToDisplay(int out[]) {
+    time_t currentTime;
+    time(&currentTime);
+    struct tm *localTime = localtime(&currentTime);
+    int Hour = localTime->tm_hour;
+    int Min = localTime->tm_min;
+
+    out[1] = Hour % 10;
+    out[0] = (Hour - out[1]) / 10;
+    out[2] = 10; // colon is after the 9 in nums.png file
+    out[4] = Min % 10;
+    out[3] = (Min - out[4]) / 10;
+}
+
+/**
+ * Adds the current time to a frame
+ * @param timeToDisplay has 5 elements 0-10
+ */
+void showTime(FrameCanvas *offscreen_canvas, const int timeToDisplay[], const Magick::Image &nums) {
+    for (uint8_t i = 0; i < 5; i++)
+    {
+        for (size_t y = 0; y < nums.rows(); ++y)
+        {
+            for (size_t x = 0; x < NUMS_WIDTH; ++x)
+            {
+                copyPixel(nums, offscreen_canvas,
+                          timeToDisplay[i] * NUMS_WIDTH + x, y,
+                          TIME_X + i * (NUMS_WIDTH + NUMS_SPACE) + x, TIME_Y + y);
+            }
+        }
+    }
+}
+#endif
 
 int main(int argc, char **argv)
 {
@@ -253,7 +312,7 @@ int main(int argc, char **argv)
     }
 
     rgb_matrix::Font font;
-    const char *font_file = "5x8.bdf";
+    const char *font_file = "4x6.bdf";
     if (!font.LoadFont(font_file))
     {
         cerr << "Couldn't load font" << endl;
@@ -265,20 +324,20 @@ int main(int argc, char **argv)
     rgb_matrix::DrawText(offscreen_canvas, font,
                          2, 2 + font.baseline(),
                          Color(255, 255, 255), NULL,
-                         local_ip.substr(0, 7).c_str(),
-                         0);
-    rgb_matrix::DrawText(offscreen_canvas, font,
-                         2, 2 + font.baseline() * 2,
-                         Color(255, 255, 255), NULL,
-                         local_ip.substr(7).c_str(),
+                         local_ip.c_str(),
                          0);
 
     offscreen_canvas = matrix->SwapOnVSync(offscreen_canvas);
 
-    usleep(1000);
+    usleep(2000);
 
     signal(SIGTERM, InterruptHandler);
     signal(SIGINT, InterruptHandler);
+
+    #ifdef SHOW_TIME
+        int timeToDisplay[5] = {};
+        Magick::Image nums = Magick::Image(NUMS_FILE);
+    #endif
 
     bool changes = true;
     vector<string> images_filenames;
@@ -287,6 +346,7 @@ int main(int argc, char **argv)
 
     while (!interrupt_received)
     {
+        // check FS notifications
         char buffer[INOTIFY_BUF_LEN];
         int length = read(fd, buffer, INOTIFY_BUF_LEN);
         if (length > 0)
@@ -294,8 +354,10 @@ int main(int argc, char **argv)
             changes = true;
         }
 
-        EVERY_N_MILLIS(10000)
+        // reload files if needed
+        EVERY_N_MILLIS_I(t, 1)
         {
+            t.setPeriod(10000);
             if (changes)
             {
                 listImages(images_filenames);
@@ -314,16 +376,21 @@ int main(int argc, char **argv)
                     }
                     stream = loadImages(images_filenames, offscreen_canvas);
                     reader = new rgb_matrix::StreamReader(stream);
-                    changes = false;
                 }
+                changes = false;
             }
         }
 
-        uint32_t delay_us = 0;
+        // display !
         if (reader != NULL) {
+            uint32_t delay_us = 0;
             if (reader->GetNext(offscreen_canvas, &delay_us)) {
-                const tmillis_t anim_delay_ms = delay_us / 1000;
                 const tmillis_t start_wait_ms = GetTimeInMillis();
+                const tmillis_t anim_delay_ms = delay_us / 1000;
+                #ifdef SHOW_TIME
+                    getTimeToDisplay(timeToDisplay);
+                    showTime(offscreen_canvas, timeToDisplay, nums);
+                #endif
                 offscreen_canvas = matrix->SwapOnVSync(offscreen_canvas);
                 const tmillis_t time_already_spent = GetTimeInMillis() - start_wait_ms;
                 SleepMillis(anim_delay_ms - time_already_spent);
