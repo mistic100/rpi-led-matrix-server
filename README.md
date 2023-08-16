@@ -27,7 +27,6 @@ For convenience, the RPI IP address is displayed on program start.
 There are some constants at the begining of `matrix.cpp`
 - `MATRIX_WIDTH` and `MATRIX_HEIGHT` : size of the screen and expected size of images
 - `IMAGE_DELAY` : default duration for still images (PNG)
-- `NUMS_FILE`, `NUMS_WIDTH` and `NUMS_HEIGHT` : configuration of a file containing numbers 0 to 9 + ":" symbol
+- `NUMS_FILE`, `NUMS_WIDTH`, `NUMS_HEIGHT` and `NUMS_SPACE` : configuration of a file containing numbers 0 to 9 + ":" symbol
 - `SHOW_TIME`, `TIME_X` and `TIME_Y` : configuration of the digital clock
-- `NUMS_SPACE` : letter-spacing when displaying the clock
 - `BUTTON_PIN` : input pin for a button (on/off)

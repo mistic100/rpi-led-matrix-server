@@ -34,12 +34,12 @@ const string IMAGE_EXTENSION_PNG = ".png";
 const string IMAGE_EXTENSION_GIF = ".gif";
 
 const char* NUMS_FILE = "nums.png";
-#define NUMS_WIDTH 11
+#define NUMS_WIDTH 10
 #define NUMS_HEIGHT 12
-#define NUMS_SPACE -2
+#define NUMS_SPACE 1
 
 #define SHOW_TIME
-#define TIME_X ((MATRIX_WIDTH - (NUMS_WIDTH + NUMS_SPACE) * 5) / 2)
+#define TIME_X ((MATRIX_WIDTH - NUMS_WIDTH * 5) / 2)
 #define TIME_Y ((MATRIX_HEIGHT - NUMS_HEIGHT) / 2)
 
 #define BUTTON_PIN 6 // GPIO25
@@ -269,8 +269,8 @@ void showTime(FrameCanvas *offscreen_canvas, const int timeToDisplay[], const Ma
             for (size_t x = 0; x < NUMS_WIDTH; ++x)
             {
                 copyPixel(nums, offscreen_canvas,
-                          timeToDisplay[i] * NUMS_WIDTH + x, y,
-                          TIME_X + i * (NUMS_WIDTH + NUMS_SPACE) + x, TIME_Y + y);
+                          timeToDisplay[i] * (NUMS_WIDTH + NUMS_SPACE) + x, y,
+                          TIME_X + i * NUMS_WIDTH + x, TIME_Y + y);
             }
         }
     }
